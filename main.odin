@@ -55,16 +55,22 @@ handleSecondaryKeys :: proc() {
 }
 
 update :: proc() {
-	// frames
-	_globalFrames += 1
-	if _globalFrames % 6 == 0 {
-		_animFrames += 1
-	}
-
 	handleSecondaryKeys()
 
 	p := &_p
 	mov := rl.Vector2{}
+
+	sprinting := false
+	if rl.IsKeyDown(.LEFT_SHIFT) {
+		sprinting = true
+	}
+
+	// frames
+	_globalFrames += 1
+	updateEvery := 8 if !sprinting else 4
+	if _globalFrames % updateEvery == 0 {
+		_animFrames += 1
+	}
 
 	if rl.IsKeyDown(.W) {
 		mov += {0, -1}
@@ -76,12 +82,10 @@ update :: proc() {
 	}
 	if rl.IsKeyDown(.A) {
 		mov += {-1, 0}
-		p.state = .UP
 		p.state = Running.LEFT
 	}
 	if rl.IsKeyDown(.D) {
 		mov += {1, 0}
-		p.state = .UP
 		p.state = Running.RIGHT
 	}
 
@@ -90,7 +94,7 @@ update :: proc() {
 	}
 
 	mov = rl.Vector2Normalize(mov)
-	p.pos += mov * p.speed
+	p.pos += mov * (p.speed if !sprinting else p.speed * 2)
 }
 
 resolvePlayerTextureRect :: proc(p: Player) -> rl.Rectangle {
