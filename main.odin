@@ -6,15 +6,18 @@ import "core:fmt"
 import "core:log"
 import "core:mem"
 import "core:net"
+import "maps"
 import rl "vendor:raylib"
 
 _screenWidth :: 800
 _screenHeight :: 600
 
+_tileSize :: 100
+
 _p := Player {
 	pos   = {0, 0},
 	speed = 2,
-	size  = 200,
+	size  = _tileSize * 2,
 }
 
 _globalFrames: int = 0
@@ -22,8 +25,44 @@ _animFrames: int = 0
 
 _playerTexture: rl.Texture2D
 _playerTextureTileSize := 48
+_map: maps.Map
+_cam := rl.Camera2D {
+	target   = _p.pos,
+	offset   = {_screenWidth / 2, _screenHeight / 2},
+	zoom     = .3,
+	rotation = 0,
+}
+
+init :: proc() {
+	_playerTexture = rl.LoadTexture("resources/Characters/Basic_Charakter_Spritesheet.png")
+
+	grassTexture := rl.LoadTexture("resources/Tilesets/Grass.png")
+	waterTexture := rl.LoadTexture("resources/Tilesets/Water.png")
+	_map = maps.newMap(
+		"map.data",
+		{.GRASS = {grassTexture, {16, 80, 16, 16}}, .WATER = {waterTexture, {0, 0, 16, 16}}},
+	)
+}
+
+handleSecondaryKeys :: proc() {
+	if rl.IsKeyPressed(.EQUAL) {
+		_cam.zoom *= 1.2
+	}
+	if rl.IsKeyPressed(.MINUS) {
+		_cam.zoom /= 1.2
+	}
+	_cam.zoom = rl.Clamp(_cam.zoom, 0.2, 4)
+}
 
 update :: proc() {
+	// frames
+	_globalFrames += 1
+	if _globalFrames % 6 == 0 {
+		_animFrames += 1
+	}
+
+	handleSecondaryKeys()
+
 	p := &_p
 	mov := rl.Vector2{}
 
@@ -53,6 +92,7 @@ update :: proc() {
 	mov = rl.Vector2Normalize(mov)
 	p.pos += mov * p.speed
 }
+
 resolvePlayerTextureRect :: proc(p: Player) -> rl.Rectangle {
 	tile := resolvePlayerTextureTile(p)
 	tile *= _playerTextureTileSize
@@ -104,31 +144,30 @@ drawStats :: proc() {
 }
 
 render :: proc() {
-	drawPlayer(_p)
-	drawStats()
-}
+	rl.BeginDrawing()
+	rl.BeginMode2D(_cam)
+	rl.ClearBackground(rl.GRAY)
 
-init :: proc() {
-	_playerTexture = rl.LoadTexture("resources/Characters/Basic_Charakter_Spritesheet.png")
+	// World
+	maps.drawMap(_map, _tileSize)
+	drawPlayer(_p)
+	_cam.target = _p.pos
+
+	// UI
+	drawStats()
+
+	rl.EndMode2D()
+	rl.EndDrawing()
 }
 
 main :: proc() {
 	rl.InitWindow(_screenWidth, _screenHeight, "gsdg")
 	rl.SetTargetFPS(60)
+
 	init()
 
 	for !rl.WindowShouldClose() {
-		_globalFrames += 1
-		if _globalFrames % 6 == 0 {
-			_animFrames += 1
-		}
-		rl.BeginDrawing()
-
 		update()
-
-		rl.ClearBackground(rl.GRAY)
 		render()
-
-		rl.EndDrawing()
 	}
 }
